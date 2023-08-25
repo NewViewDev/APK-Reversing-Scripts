@@ -30,7 +30,7 @@ def statusAlert(text):
     print("\n" + f"************ {text.upper()} ************" + "\n")
 
 def compileAPK():
-    #Compile to apk with parent dir name. Apk will appear in dist
+    #Compile to apk with parent dir name using APKtool. Apk will appear in dist
     try:
         subprocess.run(f"apktool b --use-aapt2 ./ -o ./dist/{dirName}.apk", shell=True, check=True)
     except subprocess.CalledProcessError as e:
@@ -41,14 +41,14 @@ def compileAPK():
     
     os.chdir("./dist")
 
-    # Sign using newer apksigner
-    # ****** Must be done after zipalign instead of before like jarsigner ******
+    #Get debug signing key
     keyPath = ""
     if sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
         keyPath = os.path.expanduser("~/.android/debug.keystore")
     elif sys.platform.startswith('win'):
         keyPath = os.path.expanduser("~user\.android\debug.keystore")
 
+    #Create debug signing keys if they do not exist
     if not os.path.exists(keyPath):
         create = input("\nNo debug keystore detected at common paths. Create one? (y/n): ")
         print("\n")
@@ -62,6 +62,16 @@ def compileAPK():
 
         statusAlert("Keygen success")
     
+    #Zipalign compiled apk
+    try:
+        subprocess.run(f"zipalign -p -f 4 {dirName}.apk {dirName}Align.apk", shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        sys.exit("Align Failed.\n")
+
+    statusAlert("Zipalign Success")
+
+    # Sign using the new apksigner
+    # ****** Must be done after zipalign instead of before like jarsigner ******
     try:
         subprocess.run(f"apksigner sign --ks-pass pass:android --ks {keyPath} {dirName}.apk", shell=True, check=True)
     except subprocess.CalledProcessError as e:
@@ -69,25 +79,14 @@ def compileAPK():
 
     statusAlert("file sign success")
 
+    # Verify that signature is valid
     subprocess.run(f"apksigner verify --print-certs {dirName}.apk", shell=True)
-
-    #Align compiled apk
-    try:
-        subprocess.run(f"zipalign -p -f 4 {dirName}.apk {dirName}Align.apk", shell=True, check=True)
-    except subprocess.CalledProcessError as e:
-        sys.exit("Align Failed.\n")
-
-    statusAlert("Zipalign Success")
-    
-
-
-    
 
     #Remove Unaligned apk
     os.remove(f"./{dirName}.apk")
 
 def run():
-    #Parse AppManifest to get package to run app on device
+    #Parse AppManifest to get package to run the correct app on device
     manifestTree = xmlParser.parse(os.path.join(rootFolder, "AndroidManifest.xml"))
     packageName = manifestTree.getroot().get("package")
 
