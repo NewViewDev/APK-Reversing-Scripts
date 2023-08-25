@@ -7,7 +7,7 @@ import xml.etree.ElementTree as xmlParser
 
 parser = argparse.ArgumentParser(description='****This script is meant to be run while inside a decompiled android apk folder that was decompiled using apktool.****')
 
-parser.add_argument('-c', help='compile, sign, align and save apk to dist', nargs='?', default=os.getcwd(), const=os.getcwd())
+parser.add_argument('-c', help='compile, sign, align and save apk to dist', nargs='?', const=os.getcwd())
 parser.add_argument('-r', help='install and run app', action='store_true')
 parser.add_argument('-q', help='do nothing and quit', action='store_true')
 
@@ -16,19 +16,21 @@ args = parser.parse_args()
 if args.q == True:
     exit(0)
 
-#Get info for shell command run dirs and filenames
-cwd = args.c
-if not os.path.exists(cwd):
-    print("Invalid path. Exiting.")
+rootFolder = os.getcwd()
 
-dirName = os.path.basename(cwd)
+if args.c is not None:
+    rootFolder = args.c
+
+if not os.path.exists(rootFolder):
+    sys.exit("Invalid path. Exiting.")
+
+dirName = os.path.basename(rootFolder)
 
 def statusAlert(text):
     print("\n" + f"************ {text.upper()} ************" + "\n")
 
 def compileAPK():
     #Compile to apk with parent dir name. Apk will appear in dist
-    print("\n")
     try:
         subprocess.run(f"apktool b --use-aapt2 ./ -o ./dist/{dirName}.apk", shell=True, check=True)
     except subprocess.CalledProcessError as e:
@@ -86,19 +88,18 @@ def compileAPK():
 
 def run():
     #Parse AppManifest to get package to run app on device
-    manifestTree = xmlParser.parse(cwd + "\\AndroidManifest.xml")
+    manifestTree = xmlParser.parse(os.path.join(rootFolder, "AndroidManifest.xml"))
     packageName = manifestTree.getroot().get("package")
-    
-    if os.path.basename(os.getcwd()) != "dist":
-        os.chdir("./dist")
 
+    runTarget = os.path.join(rootFolder, "dist", f"{dirName}Align.apk")
+    print(runTarget)
     #Install aligned apk to connected phone
-    subprocess.run(f"adb install .\\{dirName}Align.apk", shell=True, check="True")
+    subprocess.run(f"adb install {runTarget}", shell=True, check="True")
 
     #Simulate tap to launch app
     # subprocess.run(f"adb shell am start -D -n {packageName}/{activity}", shell=True)
 
-if args.c is not None:
+if len(sys.argv) == 1 or args.c is not None:
     compileAPK()
 if args.r is True:
     run()
