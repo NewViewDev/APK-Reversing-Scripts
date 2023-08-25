@@ -19,12 +19,13 @@ if args.q == True:
 rootDir = os.getcwd()
 
 if args.c is not None:
-    rootDir = args.c
+    rootDir = os.path.abspath(args.c)
 
 if not os.path.exists(rootDir):
     sys.exit("Invalid path. Exiting.")
 
-apkName = os.path.basename(rootDir)
+apkName = os.path.split(rootDir)[-1]
+filePath = os.path.join(rootDir, 'dist', apkName)
 
 def statusAlert(text):
     print("\n" + f"************ {text.upper()} ************" + "\n")
@@ -32,7 +33,7 @@ def statusAlert(text):
 def compileAPK():
     #Compile to apk with parent dir name using APKtool. Apk will appear in dist
     try:
-        subprocess.run(f"apktool b --use-aapt2 ./ -o ./dist/{apkName}.apk", shell=True, check=True)
+        subprocess.run(f"apktool b --use-aapt2 ./ -o {filePath}.apk", shell=True, check=True)
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             sys.exit("apktool compilation failure!\n")
@@ -62,8 +63,6 @@ def compileAPK():
 
         statusAlert("Keygen success")
     
-
-    filePath = os.path.join(rootDir, 'dist', apkName)
     #Zipalign compiled apk
     try:
         subprocess.run(f"zipalign -p -f 4 {filePath}.apk {filePath}Align.apk", shell=True, check=True)
@@ -83,6 +82,7 @@ def compileAPK():
 
     # Verify that signature is valid
     subprocess.run(f"apksigner verify --print-certs {filePath}Align.apk", shell=True)
+    statusAlert("Apk Complete")
     print("\n")
     #Remove Unaligned apk
     os.remove(f"{filePath}.apk")
