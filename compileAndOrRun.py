@@ -8,7 +8,8 @@ import xml.etree.ElementTree as xmlParser
 parser = argparse.ArgumentParser(description='****This script is meant to be run while inside a decompiled android apk folder that was decompiled using apktool.****')
 
 parser.add_argument('-c', help='compile, sign, align and save apk to dist', nargs='?', const=os.getcwd())
-parser.add_argument('-r', help='install and run app', action='store_true')
+parser.add_argument('-i', help='install app to connected device via adb', action='store_true')
+# parser.add_argument('-r', help='run app on connected device via adb', action='store_true')
 parser.add_argument('-q', help='do nothing and quit', action='store_true')
 
 args = parser.parse_args()
@@ -87,20 +88,45 @@ def compileAPK():
     #Remove Unaligned apk
     os.remove(f"{filePath}.apk")
 
-def run():
-    #Parse AppManifest to get package to run the correct app on device
+#Return package name and activities
+#CURRENTLY JUST RETURNS NAME
+def getPackageInfo():
     manifestTree = xmlParser.parse(os.path.join(rootDir, "AndroidManifest.xml"))
     packageName = manifestTree.getroot().get("package")
+    return packageName
 
+def install():
     runTarget = os.path.join(rootDir, "dist", f"{apkName}Align.apk")
 
     #Install aligned apk to connected phone
-    subprocess.run(f"adb install {runTarget}", shell=True, check="True")
+    try:
+        subprocess.run(f"adb install {runTarget}", shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        sys.exit("Failed to install file to device.\n")
+
+    statusAlert("Install Success")
+
+def run():
+    #Parse AppManifest to get package to run the correct app on device
+    packageName = getPackageInfo()
+
+    # if notinstalled, offer to install
+    try:
+        subprocess.check_output(f"adb shell pm path {packageName}", shell=True)
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        shouldInstall = input("\nThis package was not found on device. Run install command? (y/n): ")
+        if len(shouldInstall) == 1 and shouldInstall == 'y':
+            install()
+        else:
+            sys.exit("Please verify that the package is installed before running.")
 
     #Simulate tap to launch app
     # subprocess.run(f"adb shell am start -D -n {packageName}/{activity}", shell=True)
 
 if len(sys.argv) == 1 or args.c is not None:
     compileAPK()
+if args.i is True:
+    install()
 if args.r is True:
     run()
