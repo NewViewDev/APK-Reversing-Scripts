@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(description='****This script is meant to be run
 
 parser.add_argument('-c', help='compile, sign, align and save apk to dist', nargs='?', const=os.getcwd())
 parser.add_argument('-i', help='install app to connected device via adb', action='store_true')
-# parser.add_argument('-r', help='run app on connected device via adb', action='store_true')
+parser.add_argument('-r', help='run app on connected device via adb', action='store_true')
 parser.add_argument('-q', help='do nothing and quit', action='store_true')
 
 args = parser.parse_args()
@@ -93,7 +93,8 @@ def compileAPK():
 def getPackageInfo():
     manifestTree = xmlParser.parse(os.path.join(rootDir, "AndroidManifest.xml"))
     packageName = manifestTree.getroot().get("package")
-    return packageName
+    activities = []
+    return packageName, activities
 
 def install():
     runTarget = os.path.join(rootDir, "dist", f"{apkName}Align.apk")
@@ -108,7 +109,7 @@ def install():
 
 def run():
     #Parse AppManifest to get package to run the correct app on device
-    packageName = getPackageInfo()
+    packageName, activities = getPackageInfo()
 
     # if notinstalled, offer to install
     try:
@@ -122,7 +123,10 @@ def run():
             sys.exit("Please verify that the package is installed before running.")
 
     #Simulate tap to launch app
-    # subprocess.run(f"adb shell am start -D -n {packageName}/{activity}", shell=True)
+    subprocess.run(f"adb shell monkey -p {packageName} 1", shell=True)
+
+    #Send intent to launch app
+    # subprocess.run(f"adb shell am start -D -n {packageName}/.MainActivity", shell=True)
 
 if len(sys.argv) == 1 or args.c is not None:
     compileAPK()
